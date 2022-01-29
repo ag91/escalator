@@ -49,6 +49,7 @@
     (:description "in fs file *names*" :fn escalator-helm-find-root )
     (:description "in fs files" :fn escalator-helm-do-grep-ag-root )
     (:description "in mails" :fn escalator-helm-mu )
+    (:description "in dictionary" :fn escalator-helm-wordnut )
     (:description "in the web" :fn escalator-helm-google-suggest ))
   "Escalator helm commands.")
 
@@ -211,6 +212,13 @@
           :input input
           :candidate-number-limit 500)))
 
+(defun escalator-helm-wordnut (&optional input)
+  (require 'helm-wordnut)
+  (helm :sources 'helm-wordnut-source
+        :buffer "*helm wordnut*"
+        :input input
+        :default (thing-at-point 'word)))
+
 (defun escalator-helm-google-suggest (&optional input)
   (helm
    :sources (helm-build-sync-source "Google Suggest"
@@ -237,26 +245,42 @@
        :exclude?)))
    escalator-commands-map))
 
-(defun escalator-ask-and-run-command (&optional input)
-  "Ask user for a Helm searcher. Insert INPUT in search."
+(defcustom escalator-timeout 0.5
+  "Time to wait after helm didn't produce a result to escalate to next searcher.")
+
+(defvar escalator-current-search nil "Keep track of what command you executed last.")
+
+(defun escalator-ask-and-run-command (&optional input command)
+  "Ask user for a Helm searcher. Insert INPUT in search. Use COMMAND if present."
   (interactive)
   (let* ((available-map (escalator-only-relevant-commands))
-         (command (completing-read
-                   "Choose command:"
-                   (-map (lambda (x) (plist-get x :description)) available-map)
-                   nil
-                   t))
-         (result (plist-get
-                  (--find
-                   (string-equal
-                    command
-                    (plist-get it :description))
-                   escalator-commands-map)
-                  :fn)))
-    (setq kill-ring (-distinct (cons input kill-ring)))
+         (command-description (or command (completing-read
+                                           "Choose command:"
+                                           (-map (lambda (x) (plist-get x :description)) available-map)
+                                           nil
+                                           t)))
+         (result (or command (plist-get
+                              (--find
+                               (string-equal
+                                command-description
+                                (plist-get it :description))
+                               escalator-commands-map)
+                              :fn))))
+    (setq escalator-current-search result)
     (funcall
      result
      input)))
+
+(defun escalator-next ()
+  "Use next (i.e., the one after `escalator-current-search') Helm searchers."
+  (interactive)
+  (let ((search (minibuffer-contents-no-properties)))
+    (helm-run-after-exit
+     'escalator-ask-and-run-command search
+     (let ((index (--find-index
+                   (equal escalator-current-search (plist-get it :fn))
+                   escalator-commands-map)))
+       (plist-get (nth (1+ index) escalator-commands-map) :fn)))))
 
 (defun escalator-cycle ()
   "Cycle between Helm searchers."
@@ -266,6 +290,7 @@
 
 (global-set-key (kbd "C-c e a") 'escalator-ask-and-run-command)
 (define-key helm-map (kbd "C-c e") 'escalator-cycle)
+(define-key helm-map (kbd "C-c n") 'escalator-next)
 
 (provide 'escalator)
 
