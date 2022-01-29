@@ -20,3 +20,5 @@ You can install this file by loading it by hand or, if you use
 You will need helm and the helm searchers mentioned in your
 =escalator-commands-map=, the custom variable that sets the available
 searchers and their order.
+
+More info: https://ag91.github.io/blog/2022/01/29/escalate-your-helm-searches/

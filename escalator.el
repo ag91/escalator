@@ -4,7 +4,7 @@
 ;; Maintainer: Andrea
 ;; Version: 0
 ;; Package-Requires: (helm)
-;; Homepage: 
+;; Homepage: https://github.com/ag91/escalator
 ;; Keywords: helm
 
 
