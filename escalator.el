@@ -136,36 +136,44 @@
 
 (defun helm-org-roam (&optional input candidates)
   (interactive)
-  (helm :sources (helm-build-sync-source "Roam: "
-
-                   :fuzzy-match t
-                   :candidates (or candidates (org-roam--get-titles))
-                   :action
-                   '(("Find File" . (lambda (x)
-                                      (--> x
-                                           org-roam-node-from-title-or-alias
-                                           org-roam-node-file
-                                           find-file)))
-                     ("Insert link" . (lambda (x)
-                                        (--> x
-                                             org-roam-node-from-title-or-alias
-                                             (insert
-                                              (format
-                                               "[[id:%s][%s]]"
-                                               (org-roam-node-id it)
-                                               (org-roam-node-title it))))))
-                     ("Follow backlinks" . (lambda (x)
-                                             (let ((candidates
-                                                    (--> x
-                                                         org-roam-node-from-title-or-alias
-                                                         org-roam-backlinks-get
-                                                         (--map
-                                                          (org-roam-node-title
-                                                           (org-roam-backlink-source-node it))
-                                                          it))))
-                                               (add-to-list 'kill-ring x) ; just to make sure I can return to the last backlink(s) in case there are no further backlinks
-                                               (helm-org-roam nil candidates))))))
-        :input input))
+  (require 'org-roam)
+  (helm
+   :input input
+   :sources (list
+             (helm-build-sync-source "Roam: "
+               :must-match nil
+               :fuzzy-match t
+               :candidates (or candidates (org-roam--get-titles))
+               :action
+               '(("Find File" . (lambda (x)
+                                  (--> x
+                                       org-roam-node-from-title-or-alias
+                                       (org-roam-node-visit it t))))
+                 ("Insert link" . (lambda (x)
+                                    (--> x
+                                         org-roam-node-from-title-or-alias
+                                         (insert
+                                          (format
+                                           "[[id:%s][%s]]"
+                                           (org-roam-node-id it)
+                                           (org-roam-node-title it))))))
+                 ("Follow backlinks" . (lambda (x)
+                                         (let ((candidates
+                                                (--> x
+                                                     org-roam-node-from-title-or-alias
+                                                     org-roam-backlinks-get
+                                                     (--map
+                                                      (org-roam-node-title
+                                                       (org-roam-backlink-source-node it))
+                                                      it))))
+                                           (add-to-list 'kill-ring x) ; just to make sure I can return to the last backlink(s) in case there are no further backlinks
+                                           (helm-org-roam nil candidates))))))
+             (helm-build-dummy-source
+                 "Create note"
+               :action '(("Capture note" . (lambda (candidate)
+                                             (org-roam-capture-
+                                              :node (org-roam-node-create :title candidate)
+                                              :props '(:finalize find-file)))))))))
 
 (defalias 'escalator-helm-org-roam 'helm-org-roam)
 
