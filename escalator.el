@@ -43,11 +43,12 @@
     (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list )
     (:description "in this directory files" :fn escalator-helm-do-grep-ag )
     (:description "in org files" :fn escalator-helm-org-rifle )
+    (:description "in org-roam titles" :fn escalator-helm-org-roam )
     (:description "in project files *names*" :fn escalator-helm-projectile-find-file )
     (:description "in project files" :fn escalator-helm-projectile-ag )
     (:description "in all open buffers" :fn helm-multi-swoop-all)
     (:description "in fs file *names*" :fn escalator-helm-find-root )
-    (:description "in fs files" :fn escalator-helm-do-grep-ag-root )
+    (:description "in fs files" :fn escalator-helm-do-grep-ag-root :timeout 120)
     (:description "in mails" :fn escalator-helm-mu )
     (:description "in dictionary" :fn escalator-helm-wordnut )
     (:description "in the web" :fn escalator-helm-google-suggest ))
@@ -82,7 +83,8 @@
                        (helm-tree-sitter-core-build-node-list (tsc-root-node tree-sitter-tree) 0))
           :action (lambda (x)
                     (goto-char (helm-tree-sitter-core-elem-start-pos x)))
-          :fuzzy-match t)
+          ;; :fuzzy-match t
+          )
         :input input
         :candidate-number-limit 9999
         :buffer "*helm tree-sitter*"))
@@ -103,7 +105,8 @@
     (setq helm-source-buffers-list
           (helm-make-source "Buffers" 'helm-source-buffers)))
   (helm :sources '(helm-source-buffers-list
-                   helm-source-buffer-not-found)
+                   ;; helm-source-buffer-not-found
+                   )
         :input input
         :buffer "*helm buffers*"
         :keymap helm-buffer-map
@@ -130,6 +133,41 @@
         (let* ((helm-candidate-separator " "))
           (helm :input input :sources (helm-org-rifle-get-sources-for-open-buffers))))
     (run-hooks 'helm-org-rifle-after-command-hook)))
+
+(defun helm-org-roam (&optional input candidates)
+  (interactive)
+  (helm :sources (helm-build-sync-source "Roam: "
+
+                   :fuzzy-match t
+                   :candidates (or candidates (org-roam--get-titles))
+                   :action
+                   '(("Find File" . (lambda (x)
+                                      (--> x
+                                           org-roam-node-from-title-or-alias
+                                           org-roam-node-file
+                                           find-file)))
+                     ("Insert link" . (lambda (x)
+                                        (--> x
+                                             org-roam-node-from-title-or-alias
+                                             (insert
+                                              (format
+                                               "[[id:%s][%s]]"
+                                               (org-roam-node-id it)
+                                               (org-roam-node-title it))))))
+                     ("Follow backlinks" . (lambda (x)
+                                             (let ((candidates
+                                                    (--> x
+                                                         org-roam-node-from-title-or-alias
+                                                         org-roam-backlinks-get
+                                                         (--map
+                                                          (org-roam-node-title
+                                                           (org-roam-backlink-source-node it))
+                                                          it))))
+                                               (add-to-list 'kill-ring x) ; just to make sure I can return to the last backlink(s) in case there are no further backlinks
+                                               (helm-org-roam nil candidates))))))
+        :input input))
+
+(defalias 'escalator-helm-org-roam 'helm-org-roam)
 
 (defun escalator-helm-projectile-find-file (&optional input)
   (if (projectile-project-p)
@@ -245,7 +283,7 @@
        :exclude?)))
    escalator-commands-map))
 
-(defcustom escalator-timeout 0.5
+(defcustom escalator-timeout 5
   "Time to wait after helm didn't produce a result to escalate to next searcher.")
 
 (defvar escalator-current-search nil "Keep track of what command you executed last.")
@@ -259,14 +297,14 @@
                                            (-map (lambda (x) (plist-get x :description)) available-map)
                                            nil
                                            t)))
-         (result (or command (plist-get
-                              (--find
-                               (string-equal
-                                command-description
-                                (plist-get it :description))
-                               escalator-commands-map)
-                              :fn))))
+         (entry (--find
+                 (string-equal
+                  command-description
+                  (plist-get it :description))
+                 escalator-commands-map))
+         (result (or command (plist-get entry :fn))))
     (setq escalator-current-search result)
+    (run-with-idle-timer (or (plist-get entry :timeout) escalator-timeout) nil 'escalator-auto-next)
     (funcall
      result
      input)))
@@ -281,6 +319,12 @@
                    (equal escalator-current-search (plist-get it :fn))
                    escalator-commands-map)))
        (plist-get (nth (1+ index) escalator-commands-map) :fn)))))
+
+(defun escalator-auto-next ()
+  "Automatically escalates to next searcher, if current helm searcher didn't find candidates."
+  (when (helm-empty-source-p)
+    (escalator-next)))
+
 
 (defun escalator-cycle ()
   "Cycle between Helm searchers."
