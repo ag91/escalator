@@ -166,8 +166,7 @@
                                                       (org-roam-node-title
                                                        (org-roam-backlink-source-node it))
                                                       it))))
-                                           (add-to-list 'kill-ring x) ; just to make sure I can return to the last backlink(s) in case there are no further backlinks
-                                           (helm-org-roam nil candidates))))))
+                                           (helm-org-roam nil (or candidates (list x))))))))
              (helm-build-dummy-source
                  "Create note"
                :action '(("Capture note" . (lambda (candidate)
