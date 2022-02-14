@@ -138,7 +138,10 @@
   (interactive)
   (require 'org-roam)
   (helm
-   :input input
+   :input (or input (when (region-active-p)
+                      (buffer-substring-no-properties
+                       (caar (region-bounds))
+                       (cdar (region-bounds)))))
    :sources (list
              (helm-build-sync-source "Roam: "
                :must-match nil
@@ -157,6 +160,16 @@
                                            "[[id:%s][%s]]"
                                            (org-roam-node-id it)
                                            (org-roam-node-title it))))))
+                 ("Insert links" . (lambda (x) ; for a org-transclusion based variant see: https://github.com/randomwangran/roam-with-helm/blob/3658243b90a98ea7e839dcf3a43e60efc9fd631f/roam-with-helm-v2.el 
+                                     (let ((note (helm-marked-candidates :with-wildcard t)))
+                                       (cl-loop for n in note
+                                                do (--> n
+                                                        org-roam-node-from-title-or-alias
+                                                        (insert
+                                                         (format
+                                                          "[[id:%s][%s]]\n"
+                                                          (org-roam-node-id it)
+                                                          (org-roam-node-title it))))))))
                  ("Follow backlinks" . (lambda (x)
                                          (let ((candidates
                                                 (--> x
