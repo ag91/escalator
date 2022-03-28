@@ -138,47 +138,39 @@
   (interactive)
   (require 'org-roam)
   (helm
-   :input (or input (when (region-active-p)
-                      (buffer-substring-no-properties
-                       (caar (region-bounds))
-                       (cdar (region-bounds)))))
+   :input input
    :sources (list
              (helm-build-sync-source "Roam: "
                :must-match nil
-               :fuzzy-match t
-               :candidates (or candidates (org-roam--get-titles))
+                                        ;:fuzzy-match t
+               :candidates (or candidates (org-roam-node-read--completions))
                :action
                '(("Find File" . (lambda (x)
                                   (--> x
-                                       org-roam-node-from-title-or-alias
                                        (org-roam-node-visit it t))))
                  ("Insert link" . (lambda (x)
                                     (--> x
-                                         org-roam-node-from-title-or-alias
                                          (insert
                                           (format
                                            "[[id:%s][%s]]"
                                            (org-roam-node-id it)
                                            (org-roam-node-title it))))))
                  ("Insert links" . (lambda (x) ; for a org-transclusion based variant see: https://github.com/randomwangran/roam-with-helm/blob/3658243b90a98ea7e839dcf3a43e60efc9fd631f/roam-with-helm-v2.el 
-                                     (let ((note (helm-marked-candidates :with-wildcard t)))
-                                       (cl-loop for n in note
-                                                do (--> n
-                                                        org-roam-node-from-title-or-alias
-                                                        (insert
-                                                         (format
-                                                          "[[id:%s][%s]]\n"
-                                                          (org-roam-node-id it)
-                                                          (org-roam-node-title it))))))))
+                                     (let ((notes (helm-marked-candidates)))
+                                       (--each notes (insert
+                                                      (format
+                                                       "[[id:%s][%s]]\n"
+                                                       (org-roam-node-id it)
+                                                       (org-roam-node-title it)))))))
                  ("Follow backlinks" . (lambda (x)
                                          (let ((candidates
                                                 (--> x
-                                                     org-roam-node-from-title-or-alias
                                                      org-roam-backlinks-get
                                                      (--map
                                                       (org-roam-node-title
                                                        (org-roam-backlink-source-node it))
                                                       it))))
+
                                            (helm-org-roam nil (or candidates (list x))))))))
              (helm-build-dummy-source
                  "Create note"
