@@ -385,7 +385,7 @@ list applying candidate producer functions"
                  (string-equal
                   command-description
                   (plist-get it :description))
-                 escalator-commands-map))
+                 (escalator-only-relevant-commands)))
          (result (or command (plist-get entry :fn))))
     (setq escalator-current-search result)
     (run-with-idle-timer (or (plist-get entry :timeout) escalator-timeout) nil 'escalator-auto-next)
@@ -393,25 +393,11 @@ list applying candidate producer functions"
      result
      input)))
 
-(defun escalator-show-position (index)
-  "Make a string showing at what point of `escalator-commands-map' we are with INDEX."
-  ;; (--> escalator-commands-map
-  ;;      (--map-indexed
-  ;;       (if (= it-index index)
-  ;;           (propertize (plist-get it :description) 'face 'bold-italic)
-  ;;         (plist-get it :description))
-  ;;       it)
-  ;;      (s-join "|" it)
-  ;;      ;; message
-  ;;      )
-                                        ; TODO don't use minibuffer! Maybe https://github.com/karthink/popper?
-  nil)
-
 (defun escalator-current-search-entry-index ()
   (let ((index (--find-index
                 (equal escalator-current-search (plist-get it :fn))
-                escalator-commands-map)))
-    (list :index index :entry (nth index escalator-commands-map))))
+                (escalator-only-relevant-commands))))
+    (list :index index :entry (nth index (escalator-only-relevant-commands)))))
 
 (defun escalator-next (&optional n)
   "Use next (i.e., the one after `escalator-current-search') Helm searchers. Optionally you can give N of steps."
@@ -421,8 +407,7 @@ list applying candidate producer functions"
      'escalator-ask-and-run-command search
      (let* ((index (plist-get (escalator-current-search-entry-index) :index))
             (new-index (+ index (or n 1))))
-       (escalator-show-position new-index)
-       (plist-get (nth new-index escalator-commands-map) :fn)))))
+       (plist-get (nth new-index (escalator-only-relevant-commands)) :fn)))))
 
 (defun escalator-previous (&optional n)
   "Use previous (i.e., the one after `escalator-current-search') Helm searchers. Optionally you can give N of steps."
