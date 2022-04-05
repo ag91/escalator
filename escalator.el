@@ -122,11 +122,12 @@
     :initform (lambda ()
                 (let ((-compare-fn (lambda (it other)
                                      (message "%s" (list it other))
-                                     (s-ends-with-p other it)))
+                                     (s-contains-p it other)))
                       (changed-files (magit-changed-files "HEAD~1")))
-                  (--filter
-                   (or (symbolp it) (-contains-p changed-files it))
-                   (helm-buffer-list))))
+                  (-distinct            ; TODO not sure about this
+                   (--filter
+                    (or (symbolp it) (-contains-p changed-files it))
+                    (helm-buffer-list)))))
     :custom function
     :documentation
     "  A function with no arguments to create buffer list.")
