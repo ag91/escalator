@@ -359,16 +359,39 @@
      result
      input)))
 
-(defun escalator-next ()
-  "Use next (i.e., the one after `escalator-current-search') Helm searchers."
+(defun escalator-show-position (index)
+  "Make a string showing at what point of `escalator-commands-map' we are with INDEX."
+  (--> escalator-commands-map
+       (--map-indexed
+        (if (= it-index index)
+            (propertize (plist-get it :description) 'face 'bold-italic)
+          (plist-get it :description))
+        it)
+       (s-join "|" it)
+       message)                         ; TODO don't use minibuffer! Maybe https://github.com/karthink/popper?
+  nil)
+
+(defun escalator-current-search-entry-index ()
+  (let ((index (--find-index
+                (equal escalator-current-search (plist-get it :fn))
+                escalator-commands-map)))
+    (list :index index :entry (nth index escalator-commands-map))))
+
+(defun escalator-next (&optional n)
+  "Use next (i.e., the one after `escalator-current-search') Helm searchers. Optionally you can give N of steps."
   (interactive)
   (let ((search (minibuffer-contents-no-properties)))
     (helm-run-after-exit
      'escalator-ask-and-run-command search
-     (let ((index (--find-index
-                   (equal escalator-current-search (plist-get it :fn))
-                   escalator-commands-map)))
-       (plist-get (nth (1+ index) escalator-commands-map) :fn)))))
+     (let* ((index (plist-get (escalator-current-search-entry-index) :index))
+            (new-index (+ index (or n 1))))
+       (escalator-show-position new-index)
+       (plist-get (nth new-index escalator-commands-map) :fn)))))
+
+(defun escalator-previous (&optional n)
+  "Use previous (i.e., the one after `escalator-current-search') Helm searchers. Optionally you can give N of steps."
+  (interactive)
+  (escalator-next (- (or n 1))))
 
 (defun escalator-auto-next ()
   "Automatically escalates to next searcher, if current helm searcher didn't find candidates."
@@ -385,6 +408,7 @@
 (global-set-key (kbd "C-c e a") 'escalator-ask-and-run-command)
 (define-key helm-map (kbd "C-c e") 'escalator-cycle)
 (define-key helm-map (kbd "C-c n") 'escalator-next)
+(define-key helm-map (kbd "C-c p") 'escalator-previous)
 
 (provide 'escalator)
 
