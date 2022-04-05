@@ -35,11 +35,14 @@
 (require 'helm)
 (require 'helm-find)
 (require 'helm-swoop)
+(require 'dash)
+(require 'magit)
 
 (defcustom escalator-commands-map
   '((:description "in current buffer" :fn escalator-helm-swoop)
     (:description "in current buffer syntax" :fn escalator-helm-tree-sitter)
     (:description "in file *names*" :fn escalator-helm-find-files)
+    (:description "in the buffer *names* changed from last commit" :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list )
     (:description "in this directory files" :fn escalator-helm-do-grep-ag )
     (:description "in org files" :fn escalator-helm-org-rifle )
@@ -107,6 +110,40 @@
   (helm :sources '(helm-source-buffers-list
                    ;; helm-source-buffer-not-found
                    )
+        :input input
+        :buffer "*helm buffers*"
+        :keymap helm-buffer-map
+        :truncate-lines helm-buffers-truncate-lines
+        :left-margin-width helm-buffers-left-margin-width))
+
+(defclass helm-changed-from-last-commit-source-buffers (helm-source-sync helm-type-buffer)
+  ((buffer-list
+    :initarg :buffer-list
+    :initform (lambda ()
+                (let ((-compare-fn (lambda (it other)
+                                     (message "%s" (list it other))
+                                     (s-ends-with-p other it)))
+                      (changed-files (magit-changed-files "HEAD~1")))
+                  (--filter
+                   (or (symbolp it) (-contains-p changed-files it))
+                   (helm-buffer-list))))
+    :custom function
+    :documentation
+    "  A function with no arguments to create buffer list.")
+   (init :initform 'helm-buffers-list--init)
+   (multimatch :initform nil)
+   (match :initform 'helm-buffers-match-function)
+   (persistent-action :initform 'helm-buffers-list-persistent-action)
+   (keymap :initform 'helm-buffer-map)
+   (find-file-target :initform #'helm-buffers-quit-and-find-file-fn)
+   (migemo :initform 'nomultimatch)
+   (volatile :initform t)
+   (nohighlight :initform t)
+   (resume :initform (lambda () (setq helm-buffers-in-project-p nil)))
+   (help-message :initform 'helm-buffer-help-message)))
+
+(defun escalator-helm-buffers-changed-from-last-commit-list (&optional input)
+  (helm :sources (helm-make-source "Buffers changed recently in this Git project:" 'helm-changed-from-last-commit-source-buffers)
         :input input
         :buffer "*helm buffers*"
         :keymap helm-buffer-map
