@@ -40,7 +40,7 @@
 
 (defcustom escalator-commands-map
   '((:description "in current buffer" :fn escalator-helm-swoop)
-    (:description "in current buffer syntax" :fn escalator-helm-tree-sitter)
+    (:description "in current buffer syntax" :fn escalator-helm-tree-sitter :timeout 40)
     (:description "in file *names*" :fn escalator-helm-find-files)
     (:description "in the buffer *names* changed from last commit" :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list )
@@ -58,15 +58,20 @@
   "Escalator helm commands.")
 
 (defcustom escalator-exclusions-map
-  '((:exclude? (not tree-sitter-tree) :fn escalator-helm-tree-sitter)
+  '((:exclude?
+     (not (ignore-errors
+            (require 'helm-tree-sitter)
+            (helm-tree-sitter-core-build-node-list (tsc-root-node tree-sitter-tree) 0)))
+     :fn escalator-helm-tree-sitter)
     (:exclude? (not (--remove (or (s-contains-p (buffer-name) it) (file-directory-p it)) (directory-files "."))) :fn escalator-helm-buffers-list )
     (:exclude? (not (--remove (or (s-contains-p (buffer-name) it) (file-directory-p it)) (directory-files "."))) :fn escalator-helm-do-grep-ag )
     (:exclude? (not org-agenda-files) :fn escalator-helm-org-rifle )
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-projectile-find-file )
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-projectile-ag )
-    (:description "in all open buffers" :fn helm-multi-swoop-all)
-    (:description "in fs file *names*" :fn escalator-helm-find-root )
-    (:description "in fs files" :fn escalator-helm-do-grep-ag-root ))
+    (:exclude? (not (projectile-project-p)) :fn escalator-helm-buffers-changed-from-last-commit-list)
+    (:exclude? (not (executable-find "wn")) :fn escalator-helm-wordnut)
+    (:exclude? (not (executable-find "mu")) :fn escalator-helm-mu)
+    (:exclude? (not (ignore-errors (require 'org-roam))) :fn escalator-helm-org-roam))
   "Escalator helm commands.")
 
 (defun escalator-helm-swoop (&optional input)
@@ -74,6 +79,33 @@
 
 (defun escalator-helm-tree-sitter (&optional input)
   (require 'helm-tree-sitter)
+  (defun helm-tree-sitter-core-elements-to-helm-candidates (elements)
+    "Helm-tree-sitter internal function.
+Argument ELEMENTS is a flat list of `helm-tree-sitter-core-elem's. This
+function looks up `helm-tree-sitter-producer-mode-maps' for `major-mode'
+appropriate candidate producer map, and then iterates through provided
+list applying candidate producer functions"
+
+    (let* ((current-mode-producer (symbol-value (assoc-default major-mode helm-tree-sitter-producer-mode-maps))))
+      (if (not current-mode-producer)
+          (error "Major mode is not supported by helm-tree-sitter"))
+
+      (remq nil
+            (mapcar
+             (lambda (node)
+               (let* ((my-fn (assoc-default
+                              (format "%s" (helm-tree-sitter-core-elem-node-type node))
+                              current-mode-producer)))
+                 (when my-fn
+                   ;; Great, we have a handler for the element node type
+                   (let ((fun-ret (funcall my-fn node))) ; Let's get the actual text
+                     (when fun-ret
+                       ;; Each candidate will consist of a list containing (text-string . tree)
+                       (cons
+                        fun-ret
+                        ;; Store the tree too, so additional actions can be performed later
+                        node))))))
+             elements))))
   (helm :sources
         (helm-build-sync-source "Tree-sitter"
           :candidates (--keep
@@ -90,7 +122,7 @@
           )
         :input input
         :candidate-number-limit 9999
-        :buffer "*helm tree-sitter*"))
+        :buffer "*escalator-helm-tree-sitter*"))
 
 (defun escalator-helm-occur (&optional input)
   (let ((isearch-string (or input " ")))
@@ -99,7 +131,7 @@
 (defun escalator-helm-find-files (&optional input)
   (helm :sources 'helm-source-findutils
         :input input
-        :buffer "*helm find*"
+        :buffer "*escalator-helm-find-files*"
         :ff-transformer-show-only-basename nil
         :case-fold-search helm-file-name-case-fold-search))
 
@@ -111,7 +143,7 @@
                    ;; helm-source-buffer-not-found
                    )
         :input input
-        :buffer "*helm buffers*"
+        :buffer "*escalator-helm-buffers-list*"
         :keymap helm-buffer-map
         :truncate-lines helm-buffers-truncate-lines
         :left-margin-width helm-buffers-left-margin-width))
@@ -146,7 +178,7 @@
 (defun escalator-helm-buffers-changed-from-last-commit-list (&optional input)
   (helm :sources (helm-make-source "Buffers changed recently in this Git project:" 'helm-changed-from-last-commit-source-buffers)
         :input input
-        :buffer "*helm buffers*"
+        :buffer "*escalator-helm-buffers-changed-from-last-commit-list*"
         :keymap helm-buffer-map
         :truncate-lines helm-buffers-truncate-lines
         :left-margin-width helm-buffers-left-margin-width))
@@ -160,7 +192,7 @@
                        :must-match t
                        :marked-candidates t
                        :fc-transformer 'helm-adaptive-sort
-                       :buffer "*helm ag types*"))
+                       :buffer "*escalator-helm-do-grep-ag*"))
                   input))
 
 (defun escalator-helm-org-rifle (&optional input)
@@ -169,14 +201,18 @@
       (progn
         (run-hooks 'helm-org-rifle-before-command-hook)
         (let* ((helm-candidate-separator " "))
-          (helm :input input :sources (helm-org-rifle-get-sources-for-open-buffers))))
+          (helm
+           :input input
+           :sources (helm-org-rifle-get-sources-for-open-buffers)
+           :buffer "*escalator-helm-org-rifle*")))
     (run-hooks 'helm-org-rifle-after-command-hook)))
 
-(defun helm-org-roam (&optional input candidates)
+(defun escalator-helm-org-roam (&optional input candidates)
   (interactive)
   (require 'org-roam)
   (helm
    :input input
+   :buffer "*escalator-helm-org-roam*"
    :sources (list
              (helm-build-sync-source "Roam: "
                :must-match nil
@@ -217,8 +253,6 @@
                                               :node (org-roam-node-create :title candidate)
                                               :props '(:finalize find-file)))))))))
 
-(defalias 'escalator-helm-org-roam 'helm-org-roam)
-
 (defun escalator-helm-projectile-find-file (&optional input)
   (if (projectile-project-p)
       (projectile-maybe-invalidate-cache nil)
@@ -229,7 +263,7 @@
         (helm-boring-file-regexp-list nil))
     (helm :sources helm-source-projectile-files-and-dired-list
           :input input
-          :buffer (concat "*helm projectile: " (projectile-project-name) "*")
+          :buffer (concat "*escalator-helm-projectile-find-file: " (projectile-project-name) "*")
           :prompt (projectile-prepend-project-name "Find file: "))))
 
 (defun escalator-helm-projectile-ag (&optional input options)
@@ -256,7 +290,7 @@
 (defun escalator-helm-find-root (&optional input)
   (let ((default-directory "/"))
     (helm :sources 'helm-source-findutils
-          :buffer "*helm find*"
+          :buffer "*escalator-helm-find-root*"
           :input input
           :ff-transformer-show-only-basename nil
           :case-fold-search helm-file-name-case-fold-search)))
@@ -270,7 +304,7 @@
                        :must-match t
                        :marked-candidates t
                        :fc-transformer 'helm-adaptive-sort
-                       :buffer "*helm ag types*"))
+                       :buffer "*escalator-helm-do-grep-ag-root*"))
                   input))
 
 (defun escalator-helm-mu (&optional input)
@@ -281,10 +315,10 @@
                   helm-mu-default-search-string))
          ;; Do not append space it there is already trailing space or query is
          ;; empty
-         (input (if (not (or (string-match-p " $" query)
-                             (string= "" query)))
-                    (concat query " ")
-                  query)))
+         (input (or input (if (not (or (string-match-p " $" query)
+                                       (string= "" query)))
+                              (concat query " ")
+                            query))))
 
     ;; If there is an existing helm action buffer kill it, otherwise it interferes
     ;; with the action for this source. This will happen if helm-mu is called as
@@ -294,7 +328,7 @@
 
     (helm :sources 'helm-source-mu
           :input input
-          :buffer "*helm mu*"
+          :buffer "*escalator-helm-mu*"
           :full-frame t
           :keymap helm-mu-map
           :input input
@@ -303,7 +337,7 @@
 (defun escalator-helm-wordnut (&optional input)
   (require 'helm-wordnut)
   (helm :sources 'helm-wordnut-source
-        :buffer "*helm wordnut*"
+        :buffer "*escalator-helm-wordnut*"
         :input input
         :default (thing-at-point 'word)))
 
@@ -318,7 +352,7 @@
               :keymap helm-map
               :requires-pattern 3)
    :input input
-   :buffer "*helm google*"))
+   :buffer "*escalator-helm-google-suggest*"))
 
 
 (defun escalator-only-relevant-commands ()
@@ -361,14 +395,16 @@
 
 (defun escalator-show-position (index)
   "Make a string showing at what point of `escalator-commands-map' we are with INDEX."
-  (--> escalator-commands-map
-       (--map-indexed
-        (if (= it-index index)
-            (propertize (plist-get it :description) 'face 'bold-italic)
-          (plist-get it :description))
-        it)
-       (s-join "|" it)
-       message)                         ; TODO don't use minibuffer! Maybe https://github.com/karthink/popper?
+  ;; (--> escalator-commands-map
+  ;;      (--map-indexed
+  ;;       (if (= it-index index)
+  ;;           (propertize (plist-get it :description) 'face 'bold-italic)
+  ;;         (plist-get it :description))
+  ;;       it)
+  ;;      (s-join "|" it)
+  ;;      ;; message
+  ;;      )
+                                        ; TODO don't use minibuffer! Maybe https://github.com/karthink/popper?
   nil)
 
 (defun escalator-current-search-entry-index ()
