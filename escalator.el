@@ -41,6 +41,7 @@
 (defcustom escalator-commands-map
   '((:description "in current buffer" :fn escalator-helm-swoop)
     (:description "in current buffer syntax" :fn escalator-helm-tree-sitter :timeout 40)
+    (:description "in recent file *names*" :fn escalator-helm-recentf)
     (:description "in file *names*" :fn escalator-helm-find-files)
     (:description "in the buffer *names* changed from last commit" :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list )
@@ -71,8 +72,15 @@
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:exclude? (not (executable-find "wn")) :fn escalator-helm-wordnut)
     (:exclude? (not (executable-find "mu")) :fn escalator-helm-mu)
-    (:exclude? (not (ignore-errors (require 'org-roam))) :fn escalator-helm-org-roam))
+    (:exclude? (not (ignore-errors (require 'org-roam))) :fn escalator-helm-org-roam)
+    (:exclude? (not (recentf-enabled-p)) :fn escalator-helm-recentf))
   "Escalator helm commands.")
+
+(defun escalator-helm-recentf (&optional input)
+  (helm :sources 'helm-source-recentf
+        :input input
+        :ff-transformer-show-only-basename nil
+        :buffer "*escalator-helm-recentf*"))
 
 (defun escalator-helm-swoop (&optional input)
   (helm-swoop :query input))
