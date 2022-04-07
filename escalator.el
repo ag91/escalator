@@ -42,18 +42,20 @@
   '((:description "in current buffer" :fn escalator-helm-swoop)
     (:description "in current buffer syntax" :fn escalator-helm-tree-sitter :timeout 40)
     (:description "in recent file *names*" :fn escalator-helm-recentf)
-    (:description "in file *names*" :fn escalator-helm-find-files)
     (:description "in the buffer *names* changed from last commit" :fn escalator-helm-buffers-changed-from-last-commit-list)
-    (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list )
+    (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list-for-directory)
+    (:description "in this directory file *names*" :fn escalator-helm-find-files)
     (:description "in this directory files" :fn escalator-helm-do-grep-ag )
-    (:description "in org files" :fn escalator-helm-org-rifle )
-    (:description "in org-roam titles" :fn escalator-helm-org-roam )
     (:description "in project files *names*" :fn escalator-helm-projectile-find-file )
+    (:description "in project buffer *names*" :fn escalator-helm-projectile-switch-to-buffer)
     (:description "in project files" :fn escalator-helm-projectile-ag )
+    (:description "in all open buffers *names*" :fn escalator-helm-buffers-list)
     (:description "in all open buffers" :fn helm-multi-swoop-all)
+    (:description "in org-roam titles" :fn escalator-helm-org-roam )
+    (:description "in org files" :fn escalator-helm-org-rifle)
+    (:description "in mails" :fn escalator-helm-mu )
     (:description "in fs file *names*" :fn escalator-helm-find-root )
     (:description "in fs files" :fn escalator-helm-do-grep-ag-root :timeout 120)
-    (:description "in mails" :fn escalator-helm-mu )
     (:description "in dictionary" :fn escalator-helm-wordnut )
     (:description "in the web" :fn escalator-helm-google-suggest ))
   "Escalator helm commands.")
@@ -75,6 +77,36 @@
     (:exclude? (not (ignore-errors (require 'org-roam))) :fn escalator-helm-org-roam)
     (:exclude? (not (recentf-enabled-p)) :fn escalator-helm-recentf))
   "Escalator helm commands.")
+
+(defun escalator-helm-buffers-list-for-directory (&optional input)
+  (require 'helm-buffers)
+  (defclass helm-source-buffers-current-dir (helm-source-sync helm-type-buffer)
+    ((buffer-list
+      :initarg :buffer-list
+      :initform (lambda () (--filter (let ((current-dir default-directory))
+                                       (with-current-buffer it
+                                         (equal default-directory current-dir) ))
+                                     (helm-buffer-list)))
+      :custom function
+      :documentation
+      "  A function with no arguments to create buffer list.")
+     (init :initform 'helm-buffers-list--init)
+     (multimatch :initform nil)
+     (match :initform 'helm-buffers-match-function)
+     (persistent-action :initform 'helm-buffers-list-persistent-action)
+     (keymap :initform 'helm-buffer-map)
+     (find-file-target :initform #'helm-buffers-quit-and-find-file-fn)
+     (migemo :initform 'nomultimatch)
+     (volatile :initform t)
+     (nohighlight :initform t)
+     (resume :initform (lambda () (setq helm-buffers-in-project-p nil)))
+     (help-message :initform 'helm-buffer-help-message)))
+  (helm :sources (list (helm-make-source "Buffers" 'helm-source-buffers-current-dir))
+        :input input
+        :buffer "*escalator-helm-buffers-list-for-directory*"
+        :keymap helm-buffer-map
+        :truncate-lines helm-buffers-truncate-lines
+        :left-margin-width helm-buffers-left-margin-width))
 
 (defun escalator-helm-recentf (&optional input)
   (require 'helm-for-files)
@@ -145,6 +177,7 @@ list applying candidate producer functions"
         :case-fold-search helm-file-name-case-fold-search))
 
 (defun escalator-helm-buffers-list (&optional input)
+  (require 'helm-buffers)
   (unless helm-source-buffers-list
     (setq helm-source-buffers-list
           (helm-make-source "Buffers" 'helm-source-buffers)))
@@ -215,6 +248,15 @@ list applying candidate producer functions"
            :sources (helm-org-rifle-get-sources-for-open-buffers)
            :buffer "*escalator-helm-org-rifle*")))
     (run-hooks 'helm-org-rifle-after-command-hook)))
+
+(defun escalator-helm-projectile-switch-to-buffer (&optional input)
+  (helm :sources '(helm-source-projectile-buffers-list)
+        :input input
+        :buffer "*escalator-helm-projectile-switch-to-buffer*"
+        :keymap helm-buffer-map
+        :truncate-lines helm-buffers-truncate-lines
+        :left-margin-width helm-buffers-left-margin-width)
+  )
 
 (defun escalator-helm-org-roam (&optional input candidates)
   (interactive)
