@@ -77,6 +77,7 @@
   "Escalator helm commands.")
 
 (defun escalator-helm-recentf (&optional input)
+  (require 'helm-for-files)
   (helm :sources 'helm-source-recentf
         :input input
         :ff-transformer-show-only-basename nil
