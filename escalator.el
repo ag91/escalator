@@ -40,24 +40,24 @@
 
 (defcustom escalator-commands-map
   '((:description "in current buffer" :fn escalator-helm-swoop)
-    (:description "in current buffer syntax" :fn escalator-helm-tree-sitter :timeout 40)
+    (:description "in current buffer syntax" :fn escalator-helm-tree-sitter)
     (:description "in recent file *names*" :fn escalator-helm-recentf)
     (:description "in the buffer *names* changed from last commit" :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list-for-directory)
     (:description "in this directory file *names*" :fn escalator-helm-find-files)
-    (:description "in this directory files" :fn escalator-helm-do-grep-ag )
-    (:description "in project files *names*" :fn escalator-helm-projectile-find-file )
+    (:description "in this directory files" :fn escalator-helm-do-grep-ag)
     (:description "in project buffer *names*" :fn escalator-helm-projectile-switch-to-buffer)
-    (:description "in project files" :fn escalator-helm-projectile-ag )
+    (:description "in project files *names*" :fn escalator-helm-projectile-find-file)
+    (:description "in project files" :fn escalator-helm-projectile-ag)
     (:description "in all open buffers *names*" :fn escalator-helm-buffers-list)
-    (:description "in all open buffers" :fn helm-multi-swoop-all)
-    (:description "in org-roam titles" :fn escalator-helm-org-roam )
-    (:description "in org files" :fn escalator-helm-org-rifle)
-    (:description "in mails" :fn escalator-helm-mu )
-    (:description "in fs file *names*" :fn escalator-helm-find-root )
+    (:description "in all open files" :fn helm-multi-swoop-all)
+    (:description "in fs file *names*" :fn escalator-helm-find-root :timeout 100)
     (:description "in fs files" :fn escalator-helm-do-grep-ag-root :timeout 120)
-    (:description "in dictionary" :fn escalator-helm-wordnut )
-    (:description "in the web" :fn escalator-helm-google-suggest ))
+    (:description "in org-roam titles" :fn escalator-helm-org-roam)
+    (:description "in org files" :fn escalator-helm-org-rifle)
+    (:description "in mails" :fn escalator-helm-mu)
+    (:description "in dictionary" :fn escalator-helm-wordnut)
+    (:description "in the web" :fn escalator-helm-google-suggest))
   "Escalator helm commands.")
 
 (defcustom escalator-exclusions-map
@@ -101,7 +101,7 @@
      (nohighlight :initform t)
      (resume :initform (lambda () (setq helm-buffers-in-project-p nil)))
      (help-message :initform 'helm-buffer-help-message)))
-  (helm :sources (list (helm-make-source "Buffers" 'helm-source-buffers-current-dir))
+  (helm :sources (list (helm-make-source "Buffers for current directory" 'helm-source-buffers-current-dir))
         :input input
         :buffer "*escalator-helm-buffers-list-for-directory*"
         :keymap helm-buffer-map
