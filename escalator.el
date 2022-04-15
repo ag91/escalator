@@ -275,6 +275,7 @@ list applying candidate producer functions"
                                        (org-roam-node-visit it t))))
                  ("Insert link" . (lambda (x)
                                     (--> x
+                                         (org-roam-node-from-title-or-alias it)
                                          (insert
                                           (format
                                            "[[id:%s][%s]]"
@@ -282,11 +283,13 @@ list applying candidate producer functions"
                                            (org-roam-node-title it))))))
                  ("Insert links" . (lambda (x) ; for a org-transclusion based variant see: https://github.com/randomwangran/roam-with-helm/blob/3658243b90a98ea7e839dcf3a43e60efc9fd631f/roam-with-helm-v2.el 
                                      (let ((notes (helm-marked-candidates)))
-                                       (--each notes (insert
-                                                      (format
-                                                       "[[id:%s][%s]]\n"
-                                                       (org-roam-node-id it)
-                                                       (org-roam-node-title it)))))))
+                                       (--each notes (-->
+                                                      (org-roam-node-from-title-or-alias it)
+                                                      (insert
+                                                       (format
+                                                        "[[id:%s][%s]]\n"
+                                                        (org-roam-node-id it)
+                                                        (org-roam-node-title it))))))))
                  ("Follow backlinks" . (lambda (x)
                                          (let ((candidates
                                                 (--> x
