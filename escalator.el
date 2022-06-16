@@ -430,7 +430,15 @@ list applying candidate producer functions"
   (let* ((available-map (escalator-only-relevant-commands))
          (command-description (or command (completing-read
                                            "Choose command:"
-                                           (-map (lambda (x) (plist-get x :description)) available-map)
+                                           (-map (lambda (x) (plist-get x :description))
+                                                 (if escalator-current-search
+                                                     (-flatten-n ; just to have the most recent command as first choice
+                                                      1
+                                                      (reverse
+                                                       (--partition-after-pred
+                                                        (eq escalator-current-search (plist-get it :fn))
+                                                        (escalator-only-relevant-commands))))
+                                                   available-map))
                                            nil
                                            t)))
          (entry (--find
