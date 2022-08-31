@@ -116,7 +116,12 @@
         :buffer "*escalator-helm-recentf*"))
 
 (defun escalator-helm-swoop (&optional input)
-  (helm-swoop :query input))
+  (let ((input (or (when (region-active-p)
+                     (buffer-substring-no-properties
+                      (caar (region-bounds))
+                      (cdar (region-bounds))))
+                   input)))
+    (helm-swoop :query input)))
 
 (defun escalator-helm-tree-sitter (&optional input)
   (require 'helm-tree-sitter)
