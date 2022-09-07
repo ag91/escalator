@@ -277,6 +277,7 @@ list applying candidate producer functions"
                :action
                '(("Find File" . (lambda (x)
                                   (--> x
+                                       (if (stringp x) (org-roam-node-from-title-or-alias it) it)
                                        (org-roam-node-visit it t))))
                  ("Insert link" . (lambda (x)
                                     (--> x
@@ -286,7 +287,7 @@ list applying candidate producer functions"
                                            "[[id:%s][%s]]"
                                            (org-roam-node-id it)
                                            (org-roam-node-title it))))))
-                 ("Insert links" . (lambda (x) ; for a org-transclusion based variant see: https://github.com/randomwangran/roam-with-helm/blob/3658243b90a98ea7e839dcf3a43e60efc9fd631f/roam-with-helm-v2.el 
+                 ("Insert links" . (lambda (x) ; for a org-transclusion based variant see: https://github.com/randomwangran/roam-with-helm/blob/3658243b90a98ea7e839dcf3a43e60efc9fd631f/roam-with-helm-v2.el
                                      (let ((notes (helm-marked-candidates)))
                                        (--each notes (insert
                                                       (format
@@ -301,8 +302,7 @@ list applying candidate producer functions"
                                                       (org-roam-node-title
                                                        (org-roam-backlink-source-node it))
                                                       it))))
-
-                                           (helm-org-roam nil (or candidates (list x))))))))
+                                           (escalator-helm-org-roam nil (or candidates (list x))))))))
              (helm-build-dummy-source
                  "Create note"
                :action '(("Capture note" . (lambda (candidate)
