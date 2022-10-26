@@ -273,7 +273,7 @@ list applying candidate producer functions"
              (helm-build-sync-source "Roam: "
                :must-match nil
                                         ;:fuzzy-match t
-               :candidates (or candidates (org-roam-node-read--completions))
+               :candidates (or candidates (org-roam--get-titles))
                :action
                '(("Find File" . (lambda (x)
                                   (--> x
@@ -308,7 +308,21 @@ list applying candidate producer functions"
                :action '(("Capture note" . (lambda (candidate)
                                              (org-roam-capture-
                                               :node (org-roam-node-create :title candidate)
-                                              :props '(:finalize find-file)))))))))
+                                              :props '(:finalize find-file))))))
+             (helm-build-dummy-source
+                 "Create note and insert link"
+               :action '(("Capture note" . (lambda (candidate)
+                                             (org-roam-capture-
+                                              :node (org-roam-node-create :title candidate)
+                                              )
+                                             (--> candidate
+                                                  (org-roam-node-from-title-or-alias it)
+                                                  (insert
+                                                   (format
+                                                    "[[id:%s][%s]]"
+                                                    (org-roam-node-id it)
+                                                    (org-roam-node-title it)))))))))))
+
 
 (defun escalator-helm-projectile-find-file (&optional input)
   (if (projectile-project-p)
