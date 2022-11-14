@@ -41,20 +41,21 @@
 (defcustom escalator-commands-map
   '((:description "in current buffer" :fn escalator-helm-swoop)
     (:description "in current buffer syntax" :fn escalator-helm-tree-sitter)
-    (:description "in recent file *names*" :fn escalator-helm-recentf)
+    (:description "in recent content *names*" :fn escalator-helm-recentf)
     (:description "in the buffer *names* changed from last commit" :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:description "in this directory buffer *names*" :fn escalator-helm-buffers-list-for-directory)
-    (:description "in this directory file *names*" :fn escalator-helm-find-files)
-    (:description "in this directory files" :fn escalator-helm-do-grep-ag)
+    (:description "in this directory content *names*" :fn escalator-helm-find-files)
+    (:description "in this directory contents" :fn escalator-helm-do-grep-ag)
     (:description "in project buffer *names*" :fn escalator-helm-projectile-switch-to-buffer)
-    (:description "in project files *names*" :fn escalator-helm-projectile-find-file)
-    (:description "in project files" :fn escalator-helm-projectile-ag)
+    (:description "in project contents *names*" :fn escalator-helm-projectile-find-file)
+    (:description "in project contents" :fn escalator-helm-projectile-ag)
     (:description "in all open buffers *names*" :fn escalator-helm-buffers-list)
-    (:description "in all open files" :fn helm-multi-swoop-all)
+    (:description "in all open contents" :fn helm-multi-swoop-all)
     (:description "in fs file *names*" :fn escalator-helm-find-root :timeout 100)
-    (:description "in fs files" :fn escalator-helm-do-grep-ag-root :timeout 120)
+    (:description "in fs contents" :fn escalator-helm-do-grep-ag-root :timeout 120)
+    (:description "in notes directory contents" :fn escalator-helm-do-grep-ag-notes-dir)
     (:description "in org-roam titles" :fn escalator-helm-org-roam)
-    (:description "in org files" :fn escalator-helm-org-rifle)
+    (:description "in org contents" :fn escalator-helm-org-rifle)
     (:description "in mails" :fn escalator-helm-mu)
     (:description "in dictionary" :fn escalator-helm-wordnut)
     (:description "in the web" :fn escalator-helm-google-suggest))
@@ -71,6 +72,7 @@
     (:exclude? (not org-agenda-files) :fn escalator-helm-org-rifle )
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-projectile-find-file )
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-projectile-ag )
+    (:exclude? (and (null escalator-notes-dir) (not (file-exists-p escalator-notes-dir))) :fn escalator-helm-do-grep-ag-notes-dir)
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:exclude? (not (executable-find "wn")) :fn escalator-helm-wordnut)
     (:exclude? (not (executable-find "mu")) :fn escalator-helm-mu)
@@ -365,6 +367,69 @@ list applying candidate producer functions"
           :input input
           :ff-transformer-show-only-basename nil
           :case-fold-search helm-file-name-case-fold-search)))
+
+(defcustom escalator-notes-dir nil "The folder where you keep your notes.")
+
+(defun escalator-helm-do-grep-ag-notes-dir (&optional input)
+  (require 'helm-files)
+  (let ((helm-grep-actions
+         '(
+           ("Find File" . 'helm-grep-action)
+           ("Insert link" . (lambda (candidate)
+                              (let* ((split        (helm-grep-split-line candidate))
+                                     (lineno       (string-to-number (nth 1 split)))
+                                     (loc-fname        (or (with-current-buffer
+                                                               (if (eq major-mode 'helm-grep-mode)
+                                                                   (current-buffer)
+                                                                 helm-buffer)
+                                                             (get-text-property (point-at-bol)
+                                                                                'helm-grep-fname))
+                                                           (car split))))
+                                (--> loc-fname
+                                     (with-current-buffer (find-file-noselect it)
+                                       (goto-line lineno)
+                                       (org-roam-node-at-point))
+                                     (insert
+                                      (format
+                                       "[[id:%s][%s]]"
+                                       (org-roam-node-id it)
+                                       (org-roam-node-title it)))))))
+           ("Follow backlinks" . (lambda (candidate)
+                                   (let* ((split        (helm-grep-split-line candidate))
+                                          (lineno       (string-to-number (nth 1 split)))
+                                          (loc-fname        (or (with-current-buffer
+                                                                    (if (eq major-mode 'helm-grep-mode)
+                                                                        (current-buffer)
+                                                                      helm-buffer)
+                                                                  (get-text-property (point-at-bol)
+                                                                                     'helm-grep-fname))
+                                                                (car split)))
+                                          (node (--> loc-fname
+                                                     (with-current-buffer (find-file-noselect it)
+                                                       (goto-line lineno)
+                                                       (org-roam-node-at-point))))
+                                          (candidates
+                                           (--> node
+                                                org-roam-backlinks-get
+                                                (--map
+                                                 (org-roam-node-title
+                                                  (org-roam-backlink-source-node it))
+                                                 it))))
+
+                                     (helm-org-roam nil (or candidates (list (org-roam-node-title node)))))))
+           ("Find file other frame" . 'helm-grep-other-frame)
+           ("Save results in grep buffer" . 'helm-grep-save-results)
+           ("Find file other window (C-u vertically)" . 'helm-grep-other-window))
+         ))
+    (helm-grep-ag-1 escalator-notes-dir
+                    (helm-aif nil
+                        (helm-comp-read
+                         "Ag type: " it
+                         :must-match t
+                         :marked-candidates t
+                         :fc-transformer 'helm-adaptive-sort
+                         :buffer "*escalator-helm-do-grep-ag-root*"))
+                    input)))
 
 (defun escalator-helm-do-grep-ag-root (&optional input)
   (require 'helm-files)
