@@ -416,7 +416,7 @@ list applying candidate producer functions"
                                                   (org-roam-backlink-source-node it))
                                                  it))))
 
-                                     (helm-org-roam nil (or candidates (list (org-roam-node-title node)))))))
+                                     (escalator-helm-org-roam nil (or candidates (list (org-roam-node-title node)))))))
            ("Find file other frame" . 'helm-grep-other-frame)
            ("Save results in grep buffer" . 'helm-grep-save-results)
            ("Find file other window (C-u vertically)" . 'helm-grep-other-window))
