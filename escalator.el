@@ -371,6 +371,7 @@ list applying candidate producer functions"
 (defcustom escalator-notes-dir nil "The folder where you keep your notes.")
 
 (defun escalator-helm-do-grep-ag-notes-dir (&optional input)
+  (interactive)
   (require 'helm-files)
   (let ((helm-grep-actions
          '(
