@@ -375,7 +375,7 @@ list applying candidate producer functions"
   (require 'helm-files)
   (let ((helm-grep-actions
          '(
-           ("Find File" . 'helm-grep-action)
+           ("Find File" . helm-grep-action)
            ("Insert link" . (lambda (candidate)
                               (let* ((split        (helm-grep-split-line candidate))
                                      (lineno       (string-to-number (nth 1 split)))
