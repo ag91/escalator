@@ -298,7 +298,7 @@ list applying candidate producer functions"
                                                        (org-roam-node-title it)))))))
                  ("Follow backlinks" . (lambda (x)
                                          (let ((candidates
-                                                (--> x
+                                                (--> (if (stringp x) (org-roam-node-from-title-or-alias x) x)
                                                      org-roam-backlinks-get
                                                      (--map
                                                       (org-roam-node-title
