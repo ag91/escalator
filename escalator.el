@@ -78,7 +78,7 @@
     (:exclude? (not (projectile-project-p)) :fn escalator-helm-buffers-changed-from-last-commit-list)
     (:exclude? (not (executable-find "wn")) :fn escalator-helm-wordnut)
     (:exclude? (not (executable-find "mu")) :fn escalator-helm-mu)
-    (:exclude? (not (ignore-errors (require 'org-roam))) :fn escalator-helm-org-roam)
+    (:exclude? (not (ignore-errors (fboundp 'org-roam-node-find))) :fn escalator-helm-org-roam)
     (:exclude? (not (recentf-enabled-p)) :fn escalator-helm-recentf))
   "Escalator helm commands.")
 
@@ -295,7 +295,7 @@ list applying candidate producer functions"
                                      (let ((notes (helm-marked-candidates)))
                                        (--each notes (insert
                                                       (format
-                                                       "[[id:%s][%s]]\n"
+                                                       "[[id:%s][%s]], "
                                                        (org-roam-node-id it)
                                                        (org-roam-node-title it)))))))
                  ("Follow backlinks" . (lambda (x)
