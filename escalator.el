@@ -34,7 +34,6 @@
 
 (require 'helm)
 (require 'helm-find)
-(require 'helm-swoop)
 (require 'dash)
 (require 'magit)
 
@@ -50,7 +49,7 @@
     (:description "in project contents *names*" :fn escalator-helm-projectile-find-file)
     (:description "in project contents" :fn escalator-helm-projectile-ag)
     (:description "in all open buffers *names*" :fn escalator-helm-buffers-list)
-    (:description "in all open contents" :fn helm-multi-swoop-all)
+    (:description "in all open contents" :fn escalator-helm-multi-swoop-all)
     (:description "in fs file *names*" :fn escalator-helm-find-root :timeout 100)
     (:description "in fs contents" :fn escalator-helm-do-grep-ag-root :timeout 120)
     (:description "in notes directory contents" :fn escalator-helm-do-grep-ag-notes-dir)
@@ -120,12 +119,17 @@
         :buffer "*escalator-helm-recentf*"))
 
 (defun escalator-helm-swoop (&optional input)
+  (require 'helm-swoop)
   (let ((input (or (when (region-active-p)
                      (buffer-substring-no-properties
                       (caar (region-bounds))
                       (cdar (region-bounds))))
                    input)))
     (helm-swoop :query input)))
+
+(defun escalator-helm-multi-swoop-all (&optional input)
+  (require 'helm-swoop)
+  (helm-multi-swoop-all input))
 
 (defun escalator-helm-tree-sitter (&optional input)
   (require 'helm-tree-sitter)
@@ -516,7 +520,7 @@ list applying candidate producer functions"
   (interactive)
   (let* ((available-map (escalator-only-relevant-commands))
          (command-description (or command (completing-read
-                                           "Choose command:"
+                                           "Choose command: "
                                            (-map (lambda (x) (plist-get x :description))
                                                  (if escalator-current-search
                                                      (-flatten-n ; just to have the most recent command as first choice
