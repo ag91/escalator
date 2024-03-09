@@ -520,7 +520,7 @@ list applying candidate producer functions"
   (interactive)
   (let* ((available-map (escalator-only-relevant-commands))
          (command-description (or command (completing-read
-                                           "Choose command:"
+                                           "Choose command: "
                                            (-map (lambda (x) (plist-get x :description))
                                                  (if escalator-current-search
                                                      (-flatten-n ; just to have the most recent command as first choice
