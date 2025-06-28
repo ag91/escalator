@@ -239,8 +239,9 @@ list applying candidate producer functions"
         :left-margin-width helm-buffers-left-margin-width))
 
 (defun escalator-helm-do-grep-ag (&optional input)
+  (interactive)
   (require 'helm-files)
-  (helm-grep-ag-1 "."
+  (helm-grep-ag-1 default-directory
                   (helm-aif nil
                       (helm-comp-read
                        "Ag type: " it
